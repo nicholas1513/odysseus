@@ -1,0 +1,33 @@
+# Ollama sidecar — NVIDIA.
+#
+# Requires nvidia-container-toolkit on the host:
+#   sudo pacman -S nvidia-container-toolkit         # Arch / CachyOS
+#   sudo apt install nvidia-container-toolkit       # Debian / Ubuntu
+#   sudo nvidia-ctk runtime configure --runtime=docker
+#   sudo systemctl restart docker
+# Verify:
+#   docker info | grep -i nvidia
+#
+# Enable by setting in .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.ollama.nvidia.yml
+#
+# The odysseus service reaches this sidecar at http://ollama:11434 via the
+# default project network — no port published to the host.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  ollama-models:
