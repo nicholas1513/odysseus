@@ -1,0 +1,34 @@
+# Ollama sidecar — AMD ROCm.
+#
+# This overlay adds a separate Ollama container built on the ollama/ollama:rocm
+# image, which bundles ROCm userspace. The host needs only the in-kernel amdgpu
+# driver plus access to /dev/kfd and /dev/dri — NOT a full host ROCm install.
+# (That distinguishes this from docker/gpu.amd.yml, which exposes the GPU into
+# the slim Odysseus image and expects host ROCm.)
+#
+# Enable by setting in .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.ollama.amd.yml
+#   RENDER_GID=987            # match `getent group render` on the host
+#
+# The odysseus service reaches this sidecar at http://ollama:11434 via the
+# default project network — no port published to the host.
+services:
+  ollama:
+    image: ollama/ollama:rocm
+    restart: unless-stopped
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - "${RENDER_GID:-987}"
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m
+      # gfx1100 (Navi 31 / RX 7900 series) is supported natively by ROCm 6.x.
+      # Only uncomment if `rocm-smi` inside the container can't see the card.
+      # - HSA_OVERRIDE_GFX_VERSION=11.0.0
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  ollama-models:
