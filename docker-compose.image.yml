@@ -1,0 +1,8 @@
+# Use the official prebuilt Odysseus image instead of building locally.
+# Pinned by digest to the 1.0.3 release image (built from upstream main 934d23c0, 2026-09-05).
+# Enable via .env:  COMPOSE_FILE=docker-compose.yml:docker-compose.ollama.amd.yml:docker-compose.image.yml
+# To move to a newer release: update the tag@digest here, then `docker compose pull odysseus && docker compose up -d`.
+services:
+  odysseus:
+    build: !reset null
+    image: ghcr.io/odysseus-dev/odysseus:1.0.3@sha256:4aa6e607d2108bd7b5f37ee1a0841dc56e6bbac36e9ccd5e1705aff7ea36fb04

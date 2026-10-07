@@ -1,0 +1,239 @@
+# Odysseus as a single-file Portainer stack (generated with `docker compose config --no-interpolate`
+# from docker-compose.yml + docker-compose.ollama.amd.yml + docker-compose.image.yml on the deploy branch).
+# Regenerate after rebasing: docker compose config --no-interpolate | sed '/^name:/d' > portainer/odysseus.stack.yml
+#
+# Portainer stack name MUST be "odysseus" so the existing named volumes (odysseus_ollama-models, ...) are reused.
+# Set these stack environment variables in Portainer (relative paths do not work in Portainer CE):
+#   APP_DATA_DIR=/home/digit/source/ops/odysseus/data   APP_LOGS_DIR=/home/digit/source/ops/odysseus/logs
+#   APP_BIND=100.90.242.78  APP_PORT=7070  PUID=1000  PGID=1000  RENDER_GID=<getent group render>
+#   LLM_HOST=ollama  ALLOWED_ORIGINS=<your origin>  ODYSSEUS_TTS_CACHE_MAX_BYTES=524288000
+networks:
+  default:
+    name: odysseus_default
+services:
+  chromadb:
+    environment:
+      - ANONYMIZED_TELEMETRY=FALSE
+    image: docker.io/chromadb/chroma:latest
+    networks:
+      default: null
+    ports:
+      - ${CHROMADB_BIND:-127.0.0.1}:8100:8000
+    restart: unless-stopped
+    volumes:
+      - source: chromadb-data
+        target: /chroma/chroma
+        type: volume
+        volume: {}
+  ntfy:
+    command: serve
+    environment:
+      - NTFY_BASE_URL=${NTFY_BASE_URL:-http://localhost:8091}
+    image: docker.io/binwiederhier/ntfy
+    networks:
+      default: null
+    ports:
+      - ${NTFY_BIND:-127.0.0.1}:8091:80
+    restart: unless-stopped
+    volumes:
+      - source: ntfy-cache
+        target: /var/cache/ntfy
+        type: volume
+        volume: {}
+  odysseus:
+    depends_on:
+      chromadb:
+        condition: service_started
+        required: true
+      searxng:
+        condition: service_healthy
+        required: true
+    environment:
+      - LLM_HOST=${LLM_HOST:-localhost}
+      - LLM_HOSTS=${LLM_HOSTS:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
+      - RESEARCH_LLM_ENDPOINT=${RESEARCH_LLM_ENDPOINT:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
+      - SEARXNG_INSTANCE=http://searxng:8080
+      - CHROMADB_HOST=chromadb
+      - CHROMADB_PORT=8000
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/app.db}
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
+      - LOCALHOST_BYPASS=${LOCALHOST_BYPASS:-false}
+      - COMPANION_BASE_URL=${COMPANION_BASE_URL:-}
+      - ODYSSEUS_ADMIN_USER=${ODYSSEUS_ADMIN_USER:-admin}
+      - ODYSSEUS_ADMIN_PASSWORD=${ODYSSEUS_ADMIN_PASSWORD:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1}
+      - SECURE_COOKIES=${SECURE_COOKIES:-}
+      - EMBEDDING_URL=${EMBEDDING_URL:-}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-}
+      - FASTEMBED_MODEL=${FASTEMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      - FASTEMBED_CACHE_PATH=${FASTEMBED_CACHE_PATH:-}
+      - CLEANUP_INTERVAL_HOURS=${CLEANUP_INTERVAL_HOURS:-24}
+      - ODYSSEUS_INPROCESS_POLLERS=${ODYSSEUS_INPROCESS_POLLERS:-1}
+      - ODYSSEUS_INPROCESS_TASKS=${ODYSSEUS_INPROCESS_TASKS:-1}
+      - ODYSSEUS_SCRIPT_HOST=${ODYSSEUS_SCRIPT_HOST:-localhost}
+      - ODYSSEUS_CHAT_UPLOAD_MAX_BYTES=${ODYSSEUS_CHAT_UPLOAD_MAX_BYTES:-10485760}
+      - ODYSSEUS_GALLERY_UPLOAD_MAX_BYTES=${ODYSSEUS_GALLERY_UPLOAD_MAX_BYTES:-104857600}
+      - ODYSSEUS_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES=${ODYSSEUS_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES:-26214400}
+      - ODYSSEUS_MEMORY_IMPORT_MAX_BYTES=${ODYSSEUS_MEMORY_IMPORT_MAX_BYTES:-10485760}
+      - ODYSSEUS_PERSONAL_UPLOAD_MAX_BYTES=${ODYSSEUS_PERSONAL_UPLOAD_MAX_BYTES:-26214400}
+      - ODYSSEUS_EMAIL_COMPOSE_UPLOAD_MAX_BYTES=${ODYSSEUS_EMAIL_COMPOSE_UPLOAD_MAX_BYTES:-26214400}
+      - ODYSSEUS_STT_MAX_AUDIO_BYTES=${ODYSSEUS_STT_MAX_AUDIO_BYTES:-26214400}
+      - ODYSSEUS_ICS_MAX_BYTES=${ODYSSEUS_ICS_MAX_BYTES:-10485760}
+      - ODYSSEUS_TTS_CACHE_MAX_BYTES=${ODYSSEUS_TTS_CACHE_MAX_BYTES}
+      - DATA_BRAVE_API_KEY=${DATA_BRAVE_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GOOGLE_PSE_CX=${GOOGLE_PSE_CX:-}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
+      - OAUTH_REDIRECT_BASE_URL=${OAUTH_REDIRECT_BASE_URL:-}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - SERPER_API_KEY=${SERPER_API_KEY:-}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    image: ghcr.io/odysseus-dev/odysseus:1.0.3@sha256:4aa6e607d2108bd7b5f37ee1a0841dc56e6bbac36e9ccd5e1705aff7ea36fb04
+    networks:
+      default: null
+    ports:
+      - ${APP_BIND:-127.0.0.1}:${APP_PORT:-7000}:7000
+    restart: unless-stopped
+    volumes:
+      - bind:
+          create_host_path: true
+          selinux: z
+        source: ${APP_DATA_DIR:-./data}
+        target: /app/data
+        type: volume
+        volume: {}
+      - bind:
+          create_host_path: true
+          selinux: z
+        source: ${APP_LOGS_DIR:-./logs}
+        target: /app/logs
+        type: volume
+        volume: {}
+      - bind:
+          create_host_path: true
+          selinux: z
+        source: ${APP_DATA_DIR:-./data}/ssh
+        target: /app/.ssh
+        type: volume
+        volume: {}
+      - bind:
+          create_host_path: true
+          selinux: z
+        source: ${APP_DATA_DIR:-./data}/huggingface
+        target: /app/.cache/huggingface
+        type: volume
+        volume: {}
+      - bind:
+          create_host_path: true
+          selinux: z
+        source: ${APP_DATA_DIR:-./data}/local
+        target: /app/.local
+        type: volume
+        volume: {}
+  ollama:
+    devices:
+      - permissions: rwm
+        source: /dev/kfd
+        target: /dev/kfd
+      - permissions: rwm
+        source: /dev/dri
+        target: /dev/dri
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m
+    group_add:
+      - video
+      - ${RENDER_GID:-987}
+    image: ollama/ollama:rocm
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - source: ollama-models
+        target: /root/.ollama
+        type: volume
+        volume: {}
+  searxng:
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    cap_drop:
+      - ALL
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        if [ ! -s /etc/searxng/settings.yml ] || grep -q 'odysseus-local-searxng-json-2026-05-30\|__SEARXNG_SECRET__' /etc/searxng/settings.yml; then
+          secret="$${SEARXNG_SECRET:-}"
+          if [ -z "$$secret" ]; then
+            secret="$$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          fi
+          sed "s|__SEARXNG_SECRET__|$$secret|g" /tmp/searxng-settings.yml.template > /etc/searxng/settings.yml
+        fi
+        # Advisory: a settings file the migration cannot parse or rewrite must
+        # not be what stops searxng from booting. It explains itself on stderr
+        # and we carry on, letting searxng report anything genuinely wrong.
+        /usr/local/searxng/.venv/bin/python /tmp/migrate-searxng-settings.py /etc/searxng/settings.yml || true
+        exec /usr/local/searxng/entrypoint.sh
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-}
+    healthcheck:
+      interval: 5s
+      retries: 20
+      start_period: 10s
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/',
+          timeout=5).read(1)"
+      timeout: 6s
+    image: docker.io/searxng/searxng:2026.5.31-7159b8aed
+    networks:
+      default: null
+    ports:
+      - host_ip: 127.0.0.1
+        mode: ingress
+        protocol: tcp
+        published: "8080"
+        target: 8080
+    restart: unless-stopped
+    volumes:
+      - source: searxng-data
+        target: /etc/searxng
+        type: volume
+        volume: {}
+      - bind:
+          create_host_path: true
+          selinux: z
+        read_only: true
+        source: /home/digit/source/ops/odysseus/config/searxng/settings.yml
+        target: /tmp/searxng-settings.yml.template
+        type: bind
+      - bind:
+          create_host_path: true
+          selinux: z
+        read_only: true
+        source: /home/digit/source/ops/odysseus/scripts/migrate_searxng_settings.py
+        target: /tmp/migrate-searxng-settings.py
+        type: bind
+volumes:
+  chromadb-data:
+    name: odysseus_chromadb-data
+  ntfy-cache:
+    name: odysseus_ntfy-cache
+  ollama-models:
+    name: odysseus_ollama-models
+  searxng-data:
+    name: odysseus_searxng-data
